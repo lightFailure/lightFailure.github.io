@@ -1,0 +1,1 @@
+{"axiom": "X","rules": [ {"predecessor": "X","successors": [ {"rule": "F[^X][&X]","probability": 1 } ] } ]}

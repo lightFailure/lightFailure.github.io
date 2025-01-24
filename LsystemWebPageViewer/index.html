@@ -67,7 +67,7 @@
 
         <label for="rules">Rules (JSON with Probabilities):</label>
         <textarea id="rules"
-            rows="4">[{"predecessor": "X", "successors": [{"rule": "F[+X][-X]&X", "probability": 1}]}, {"predecessor": "F", "successors": [{"rule": "FF", "probability": 1}]}]</textarea>
+            rows="4">{"axiom": "X","rules": [ {"predecessor": "X","successors": [ {"rule": "F[^X][&X]","probability": 1 } ] } ]}</textarea>
 
         <button id="resetTree">Reset Tree</button>
         <button id="resetCamera">Reset Camera</button>
