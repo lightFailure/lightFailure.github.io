@@ -1,0 +1,52 @@
+{
+    "axiom": "A",
+    "rules": [
+        {
+            "predecessor": "X",
+            "successors": [
+                {
+                    "rule": "F[^FFA][&FFB][>FFC]",
+                    "probability": 1
+                }
+            ]
+        },
+        
+        {
+            "predecessor": "A",
+            "successors": [
+                {
+                    "rule": "F[+>A][+<A][+&A][+^A]",
+                    "probability": 1
+                }
+            ]
+        },
+        
+        {
+            "predecessor": "B",
+            "successors": [
+                {
+                    "rule": "F[>B][<B][&B][^B]",
+                    "probability": 1
+                }
+            ]
+        },
+        {
+            "predecessor": "C",
+            "successors": [
+                {
+                    "rule": "F[>C]++[>C]++[>C]++[>C]++",
+                    "probability": 1
+                }
+            ]
+        },
+        {
+            "predecessor": "F",
+            "successors": [
+                {
+                    "rule": "F",
+                    "probability": 1
+                }
+            ]
+        }
+    ]
+}

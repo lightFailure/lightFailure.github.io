@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D L-System Tree</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="lsystem.js" defer></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        label,
+        input,
+        button {
+            display: block;
+            margin: 5px 0;
+        }
+
+        #output {
+            margin-top: 10px;
+            font-family: monospace;
+            background: #f5f5f5;
+            padding: 5px;
+            border-radius: 3px;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="ui">
+        <label for="angle">Angle:</label>
+        <input type="number" id="anglex" value="25.7" step="0.1">
+        <input type="number" id="angley" value="25.7" step="0.1">
+        <input type="number" id="anglez" value="25.7" step="0.1">
+
+        <label for="initialLength">Initial Length:</label>
+        <input type="number" id="initialLength" value="1.0" step="0.1">
+
+        <label for="lengthDecay">Length Decay:</label>
+        <input type="number" id="lengthDecay" value="0.7" step="0.1">
+
+        <label for="leafProbability">Leaf Probability:</label>
+        <input type="number" id="leafProbability" value="0.7" step="0.1">
+
+        <label for="iterations">Iterations:</label>
+        <input type="number" id="iterations" value="5" step="1">
+
+        <label for="rules">Rules (JSON with Probabilities):</label>
+        <textarea id="rules"
+            rows="4">[{"predecessor": "X", "successors": [{"rule": "F[+X][-X]&X", "probability": 1}]}, {"predecessor": "F", "successors": [{"rule": "FF", "probability": 1}]}]</textarea>
+
+        <button id="resetTree">Reset Tree</button>
+        <button id="resetCamera">Reset Camera</button>
+
+        <div id="output">Generated String: <span id="generatedString"
+                style="width: 10em; word-wrap: break-word; display: block;"></span></div>
+    </div>
+
+    <script>
+
+
+        window.addEventListener('DOMContentLoaded', () => {
+
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            const renderer = new THREE.WebGLRenderer();
+
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setClearColor(0xabdef2);
+            document.body.appendChild(renderer.domElement);
+
+            const controls = new THREE.OrbitControls(camera, renderer.domElement);
+            camera.position.set(0, 2, 5);
+            controls.target = new THREE.Vector3(0, 3, 0);
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+            directionalLight.position.set(5, 10, 7.5);
+
+            scene.add(ambientLight);
+            scene.add(directionalLight);
+
+            let treeGroup = new THREE.Group();
+            scene.add(treeGroup);
+
+            function generateTree() {
+                treeGroup.clear();
+
+                const anglex = parseFloat(document.getElementById('anglex').value);
+                const angley = parseFloat(document.getElementById('angley').value);
+                const anglez = parseFloat(document.getElementById('anglez').value);
+                const initialLength = parseFloat(document.getElementById('initialLength').value);
+                const lengthDecay = parseFloat(document.getElementById('lengthDecay').value);
+                const leafProbability = parseFloat(document.getElementById('leafProbability').value);
+                const iterations = parseInt(document.getElementById('iterations').value, 10);
+                const rulesInput = document.getElementById('rules').value;
+
+                let rules;
+                let axiom;
+                try {
+                    parsedJson = JSON.parse(rulesInput);
+                    rules = parsedJson.rules;
+                    axiom = parsedJson.axiom;
+                } catch (error) {
+                    alert("Invalid rules JSON");
+                    return;
+                }
+
+                const lSystemData = {
+                    anglex,
+                    angley,
+                    anglez,
+                    initialLength,
+                    lengthDecay,
+                    axiom,
+                    rules
+                };
+
+                const lSystem = new LSystem(lSystemData, iterations);
+                const instructions = lSystem.generate();
+                document.getElementById('generatedString').textContent = instructions;
+
+                // Branch Material (Improved)
+                const branchMaterial = new THREE.LineBasicMaterial({
+                    color: 0x99581d, // Dark brown
+                    linewidth: 3,
+                });
+
+                // Leaf Material (Improved)
+                const leafMaterial = new THREE.MeshStandardMaterial({
+                    color: 0x84cc27, // Green
+                    roughness: 0.6, // Slightly rough surface
+                    metalness: 0.0, // Non-metallic
+                    side: THREE.DoubleSide, // Render both sides of the leaf
+                    transparent: true, // Enable transparency for potential leaf textures
+                    alphaTest: 0.5, // Helps with transparency edges
+                    // Optional: Add an opacity map for leaf shape
+                    // alphaMap: leafOpacityTexture,
+                    // Optional: Add a texture map for leaf details
+                    // map: leafTexture,
+                });
+
+                const stack = [];
+                const startPosition = new THREE.Vector3(0, 0, 0);
+                let position = startPosition.clone();
+                let direction = new THREE.Vector3(0, 1, 0);
+                let right = new THREE.Vector3(1, 0, 0);
+                let up = new THREE.Vector3(0, 1, 0);
+                let forward = new THREE.Vector3(0, 0, 1);
+                let currentLength = initialLength;
+
+                // instructions are 
+                // F: Move forward
+                // +: Turn right
+                // -: Turn left
+                // &: Pitch down
+                // ^: Pitch up
+                // <: Roll left
+                // >: Roll right
+                // [: Push state
+                // ]: Pop state
+                // L: Draw leaf
+
+                instructions.split('').forEach((char) => {
+                    if (char === 'F') {
+                        const nextPosition = position.clone().add(direction.clone().multiplyScalar(currentLength));
+                        const geometry = new THREE.BufferGeometry().setFromPoints([position, nextPosition]);
+                        const line = new THREE.Line(geometry, branchMaterial);
+                        currentLength *= lengthDecay;
+                        treeGroup.add(line);
+                        position.copy(nextPosition);
+                    } else if (char === '+') {
+                        direction.applyAxisAngle(up, THREE.MathUtils.degToRad(anglex));
+                        right.applyAxisAngle(up, THREE.MathUtils.degToRad(anglex)); // Rotate right as well
+                        forward.applyAxisAngle(up, THREE.MathUtils.degToRad(anglex));
+                    } else if (char === '-') {
+                        direction.applyAxisAngle(up, -THREE.MathUtils.degToRad(anglex));
+                        right.applyAxisAngle(up, -THREE.MathUtils.degToRad(anglex)); // Rotate right as well
+                        forward.applyAxisAngle(up, -THREE.MathUtils.degToRad(anglex));
+                    } else if (char === '&') {
+                        direction.applyAxisAngle(right, THREE.MathUtils.degToRad(angley));
+                        up.applyAxisAngle(right, THREE.MathUtils.degToRad(angley)); // Rotate up as well
+                        forward.applyAxisAngle(right, THREE.MathUtils.degToRad(angley));
+                    } else if (char === '^') {
+                        direction.applyAxisAngle(right, -THREE.MathUtils.degToRad(angley));
+                        up.applyAxisAngle(right, -THREE.MathUtils.degToRad(angley)); // Rotate up as well
+                        forward.applyAxisAngle(right, -THREE.MathUtils.degToRad(angley));
+                    } else if (char === '<') {
+                        direction.applyAxisAngle(forward, THREE.MathUtils.degToRad(anglez));
+                        right.applyAxisAngle(forward, THREE.MathUtils.degToRad(anglez));
+                        up.applyAxisAngle(forward, THREE.MathUtils.degToRad(anglez));
+                    } else if (char === '>') {
+                        direction.applyAxisAngle(forward, -THREE.MathUtils.degToRad(anglez));
+                        right.applyAxisAngle(forward, -THREE.MathUtils.degToRad(anglez));
+                        up.applyAxisAngle(forward, -THREE.MathUtils.degToRad(anglez));
+                    } else if (char === '[') {
+                        stack.push({ position: position.clone(), direction: direction.clone(), right: right.clone(), up: up.clone(), forward: forward.clone(), currentLength: currentLength });
+                    } else if (char === ']') {
+                        const state = stack.pop();
+                        position.copy(state.position);
+                        direction.copy(state.direction);
+                        right.copy(state.right);
+                        up.copy(state.up);
+                        forward.copy(state.forward);
+                        currentLength = state.currentLength;
+                    } else if (char === 'L') {
+                        if (leafProbability > Math.random()) {
+                            const leafGeometry = new THREE.ConeGeometry(0.1, 0.3, 8);
+                            const leaf = new THREE.Mesh(leafGeometry, leafMaterial);
+                            leaf.position.copy(position);
+                            leaf.lookAt(position.clone().add(direction));
+                            leafGeometry.rotateX(- Math.PI / 2);
+                            leafGeometry.translate(0, 0, 0.15);
+                            treeGroup.add(leaf);
+                        }
+                    }
+                });
+            }
+
+            function resetCamera() {
+                camera.position.set(0, 2, 5);
+                camera.lookAt(new THREE.Vector3(0, 0, 0));
+                controls.update();
+            }
+
+            document.getElementById('resetTree').addEventListener('click', generateTree);
+            document.getElementById('resetCamera').addEventListener('click', resetCamera);
+
+            // Initial tree generation
+            generateTree();
+
+            // Render loop
+            function animate() {
+                requestAnimationFrame(animate);
+                controls.update();
+                renderer.render(scene, camera);
+            }
+
+            animate();
+        });
+
+    </script>
+</body>
+
+</html>

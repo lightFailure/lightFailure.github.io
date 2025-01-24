@@ -1,0 +1,43 @@
+{
+    "axiom": "FX",
+    "rules": [
+        {
+            "predecessor": "X",
+            "successors": [
+                {
+                    "rule": "F[+X&L][-X>L]&X",
+                    "probability": 0.2
+                },
+                {
+                    "rule": "F[+X&L][-X&L]&X",
+                    "probability": 0.2
+                },
+                {
+                    "rule": "F[+X>L][-X>L]&X",
+                    "probability": 0.2
+                },
+                {
+                    "rule": "F[+X&L][-X>L]&X",
+                    "probability": 0.2
+                },
+                {
+                    "rule": "F[+X&L][-X>L]&X",
+                    "probability": 0.2
+                }
+            ]
+        },
+        {
+            "predecessor": "F",
+            "successors": [
+                {
+                    "rule": "FF",
+                    "probability": 0.1
+                },
+                {
+                    "rule": "F",
+                    "probability": 0.9
+                }
+            ]
+        }
+    ]
+}
